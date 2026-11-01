@@ -1,0 +1,85 @@
+application:
+  subdomain: docmost
+  multi_instance: false
+  upstreams:
+    - location: /package-licenses/
+      backend: file:///lzcapp/pkg/content/licenses/
+    - location: /
+      backend: http://docmost:3000/
+
+services:
+  db:
+    image: docker.1ms.run/library/postgres:18
+    environment:
+      - POSTGRES_DB=docmost
+      - POSTGRES_USER=docmost
+      - |-
+        POSTGRES_PASSWORD={{ stable_secret "docmost_db_password" | replace "\r" "" | replace "\n" "" }}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U docmost -d docmost
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    binds:
+      - /lzcapp/var/pgdata:/var/lib/postgresql
+
+  redis:
+    image: docker.1ms.run/library/redis:8
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory-policy
+      - noeviction
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    binds:
+      - /lzcapp/var/redisdata:/data
+
+  docmost:
+    # upstream: docmost/docmost:0.97.0
+    image: docker.1ms.run/docmost/docmost:0.97.0
+    depends_on:
+      - db
+      - redis
+    environment:
+      - |-
+        APP_URL=https://{{ .S.AppDomain }}
+      - |-
+        APP_SECRET={{ stable_secret "docmost_app_secret" | replace "\r" "" | replace "\n" "" }}
+      - |-
+        DATABASE_URL=postgresql://docmost:{{ stable_secret "docmost_db_password" | replace "\r" "" | replace "\n" "" }}@db:5432/docmost
+      - REDIS_URL=redis://redis:6379
+      - TZ=Asia/Shanghai
+    binds:
+      - /lzcapp/var/storage:/app/data/storage
+
+usage: |
+  Docmost 是团队协作文档与知识库：富文本编辑、多人实时共同编辑、按空间分组，适合写产品文档和内部 Wiki。
+
+  使用方法：
+  1. 打开应用，第一次进入会出现初始化向导，填写工作区名称、管理员邮箱和密码，创建第一个账号。
+  2. 建空间（space），在空间里写页面；页面可以互相嵌套成树。
+  3. 在页面里可以邀请成员加入工作区，一起编辑。
+
+  数据与安全：
+  - 数据库保存在 PostgreSQL（/lzcapp/var/pgdata），附件与导入文件在 /lzcapp/var/storage，Redis 持久化在 /lzcapp/var/redisdata。
+    卸载应用会一并删除，请定期备份。
+  - 数据库密码与应用密钥由平台稳定密钥生成，每个部署不同，不写成固定值。
+  - 本包不预置任何账号或默认口令；初始化向导只在尚无工作区时出现，创建完成后自动关闭。
+  - 应用经懒猫入口鉴权访问。
+
+  说明：
+  - 本应用包含三个容器（应用本体 + PostgreSQL + Redis），启动顺序由依赖关系保证。
+  - 未配置邮件服务，邀请成员、找回密码等依赖邮件的功能不可用。
+  - 未做真机验证：初始化向导、登录、创建空间与页面、协同编辑以及重启后持久化均未在设备上实测。

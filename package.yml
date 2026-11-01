@@ -1,0 +1,18 @@
+package: community.lazycat.app.docmost
+name: Docmost
+version: 0.0.0
+description: "Collaborative wiki and documentation platform with a rich editor and real-time co-editing."
+min_os_version: "1.5.0"
+homepage: https://github.com/docmost/docmost
+author: docmost
+license: AGPL-3.0
+permissions:
+  required:
+    - net.internet
+locales:
+  zh:
+    name: Docmost
+    description: "团队协作文档与知识库：富文本编辑、多人同时编辑、空间分组，适合写产品文档和内部 Wiki。"
+  en:
+    name: Docmost
+    description: "Collaborative wiki and documentation platform with a rich editor and real-time co-editing."
